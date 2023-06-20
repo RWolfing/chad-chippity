@@ -12,19 +12,34 @@ from callback import QuestionGenCallbackHandler, StreamingLLMCallbackHandler
 from query_data import get_chain
 from schemas import ChatResponse
 
+import chromadb
+from chromadb.config import Settings;
+from langchain.vectorstores.chroma import Chroma
+from langchain.embeddings import OpenAIEmbeddings
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 vectorstore: Optional[VectorStore] = None
+
+chromaDir = './chroma/'
+#modelName = "gpt-3.5-turbo"
 
 
 @app.on_event("startup")
 async def startup_event():
     logging.info("loading vectorstore")
-    if not Path("vectorstore.pkl").exists():
-        raise ValueError("vectorstore.pkl does not exist, please run ingest.py first")
-    with open("vectorstore.pkl", "rb") as f:
-        global vectorstore
-        vectorstore = pickle.load(f)
+    if not Path(chromaDir).exists():
+        raise ValueError("No vectorstore found. Please run ingest.py first.")
+    
+    embeddings = OpenAIEmbeddings()
+    chromaClient = chromadb.Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=chromaDir))
+
+    global vectorstore
+    vectorstore = Chroma(client=chromaClient, embedding_function=embeddings)
 
 
 @app.get("/")
