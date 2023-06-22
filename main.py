@@ -1,6 +1,5 @@
 """Main entrypoint for the app."""
 import logging
-import pickle
 from pathlib import Path
 from typing import Optional
 
@@ -18,6 +17,7 @@ from langchain.vectorstores.chroma import Chroma
 from langchain.embeddings import OpenAIEmbeddings
 
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
@@ -26,20 +26,20 @@ templates = Jinja2Templates(directory="templates")
 vectorstore: Optional[VectorStore] = None
 
 chromaDir = './chroma/'
-#modelName = "gpt-3.5-turbo"
-
 
 @app.on_event("startup")
 async def startup_event():
-    logging.info("loading vectorstore")
     if not Path(chromaDir).exists():
         raise ValueError("No vectorstore found. Please run ingest.py first.")
     
-    embeddings = OpenAIEmbeddings()
+    global model_name
+    model_name = os.getenv("OPENAI_MODEL_NAME");
+
+    embeddings = OpenAIEmbeddings(model=model_name)
     chromaClient = chromadb.Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=chromaDir))
 
     global vectorstore
-    vectorstore = Chroma(client=chromaClient, embedding_function=embeddings)
+    vectorstore = Chroma(collection_name="my_collection", client=chromaClient, embedding_function=embeddings)
 
 
 @app.get("/")
@@ -53,7 +53,7 @@ async def websocket_endpoint(websocket: WebSocket):
     question_handler = QuestionGenCallbackHandler(websocket)
     stream_handler = StreamingLLMCallbackHandler(websocket)
     chat_history = []
-    qa_chain = get_chain(vectorstore, question_handler, stream_handler)
+    qa_chain = get_chain(model_name, vectorstore, question_handler, stream_handler, tracing=False)
     # Use the below line instead of the above line to enable tracing
     # Ensure `langchain-server` is running
     # qa_chain = get_chain(vectorstore, question_handler, stream_handler, tracing=True)
