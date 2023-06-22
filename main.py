@@ -25,8 +25,8 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 vectorstore: Optional[VectorStore] = None
 
-chromaDir = './chroma/survey'
-collectionName="survey_collection"
+chromaDir = './chroma/catalogue'
+collectionName="catalogue_collection"
 
 @app.on_event("startup")
 async def startup_event():

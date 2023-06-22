@@ -8,37 +8,18 @@ from langchain.vectorstores.chroma import Chroma
 from dotenv import load_dotenv
 import os;
 
-import pandas as pd
-from google_play_scraper import Sort, reviews
-from langchain.document_loaders.dataframe import DataFrameLoader
+from langchain.document_loaders import ReadTheDocsLoader
 
 load_dotenv()
 
-chromaDir = './chroma/survey'
+chromaDir = './chroma/catalogue'
 
-collectionName = "survey_collection"
+collectionName = "catalogue_collection"
 model_name = os.getenv("OPENAI_MODEL_NAME")
 
 def ingest_docs():
-    result, continuation_token = reviews(
-        'com.nianticlabs.pokemongo',
-        lang='en', # defaults to 'en'
-        country='us', # defaults to 'us'
-        sort=Sort.NEWEST, # defaults to Sort.NEWEST
-        count=500, # defaults to 100
-        #filter_score_with=5 # defaults to None(means all score)
-    )
-
-    df = pd.DataFrame.from_dict(result)
-
-    df = df.fillna("")
-    df['at'] = df['at'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    df['source'] = df['reviewId']
-
-    collectionName="survey_collection"
-
     ### Load and process data frame data frame
-    loader = DataFrameLoader(df, page_content_column="content")
+    loader = ReadTheDocsLoader("rtdocs", features="html.parser")
     documents = loader.load()
 
     embeddings = OpenAIEmbeddings(model=model_name)
