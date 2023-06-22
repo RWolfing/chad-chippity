@@ -25,7 +25,8 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 vectorstore: Optional[VectorStore] = None
 
-chromaDir = './chroma/'
+chromaDir = './chroma/survey'
+collectionName="survey_collection"
 
 @app.on_event("startup")
 async def startup_event():
@@ -39,7 +40,7 @@ async def startup_event():
     chromaClient = chromadb.Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=chromaDir))
 
     global vectorstore
-    vectorstore = Chroma(collection_name="my_collection", client=chromaClient, embedding_function=embeddings)
+    vectorstore = Chroma(collection_name=collectionName, client=chromaClient, embedding_function=embeddings)
 
 
 @app.get("/")

@@ -8,22 +8,39 @@ from langchain.vectorstores.chroma import Chroma
 from dotenv import load_dotenv
 import os;
 
+import pandas as pd
+from google_play_scraper import Sort, reviews
+from langchain.document_loaders.dataframe import DataFrameLoader
+
 load_dotenv()
 
-directory = './data/'
-chromaDir = './chroma/' 
-chunkSize = 1100 
-chunkOverlap = 200
+chromaDir = './chroma/survey'
 
-collectionName = "my_collection"
+collectionName = "survey_collection"
 model_name = os.getenv("OPENAI_MODEL_NAME")
 
 def ingest_docs():
-    dLoader = DirectoryLoader(directory, glob="./*.pdf", loader_cls=PyPDFLoader)
-    raw_documents = dLoader.load()
+    result, continuation_token = reviews(
+        'com.nianticlabs.pokemongo',
+        lang='en', # defaults to 'en'
+        country='us', # defaults to 'us'
+        sort=Sort.NEWEST, # defaults to Sort.NEWEST
+        count=500, # defaults to 100
+        #filter_score_with=5 # defaults to None(means all score)
+    )
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunkSize, chunk_overlap=chunkOverlap)
-    documents = text_splitter.split_documents(raw_documents)
+    df = pd.DataFrame.from_dict(result)
+
+    df = df.fillna("")
+    df['at'] = df['at'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    df['source'] = df['reviewId']
+
+    collectionName="survey_collection"
+
+    ### Load and process data frame data frame
+    loader = DataFrameLoader(df, page_content_column="content")
+    documents = loader.load()
+
     embeddings = OpenAIEmbeddings(model=model_name)
     vectorstore = Chroma.from_documents(
         collection_name=collectionName,
@@ -33,7 +50,7 @@ def ingest_docs():
     )
 
     vectorstore.persist()
-    print(f'Embeddings created for {len(documents)} documents')
+    print(f'Survey embeddings created for {len(documents)} documents')
 
 
 if __name__ == "__main__":
