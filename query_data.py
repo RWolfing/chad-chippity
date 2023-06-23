@@ -53,6 +53,7 @@ def get_chain(
         retriever=vectorstore.as_retriever(),
         question_generator=question_generator,
         combine_docs_chain=doc_chain,
+        memory=memory,
     )
 
     return qa
