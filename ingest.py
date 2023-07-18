@@ -1,25 +1,26 @@
-"""Load html from files, clean up, split, ingest into Weaviate."""
+# pylint: disable=E1136
+# pylint: disable=E1137
+
+"""Ingest content and create embeddings"""
+import os
+import pandas as pd
+
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import DirectoryLoader
-from langchain.document_loaders import PyPDFLoader
 from langchain.vectorstores.chroma import Chroma
+from langchain.document_loaders.dataframe import DataFrameLoader
 
 from dotenv import load_dotenv
-import os;
-
-import pandas as pd
 from google_play_scraper import Sort, reviews
-from langchain.document_loaders.dataframe import DataFrameLoader
 
 load_dotenv()
 
-chromaDir = './chroma/survey'
+CHROMA_DIR = './chroma/survey'
 
-collectionName = "survey_collection"
-model_name = os.getenv("OPENAI_MODEL_NAME")
+COLLECTION_NAME = "survey_collection"
+MODEL_NAME = os.getenv("OPENAI_MODEL_NAME")
 
 def ingest_docs():
+    """Ingest content"""
     result, continuation_token = reviews(
         'com.nianticlabs.pokemongo',
         lang='en', # defaults to 'en'
@@ -35,18 +36,16 @@ def ingest_docs():
     df['at'] = df['at'].dt.strftime('%Y-%m-%d %H:%M:%S')
     df['source'] = df['reviewId']
 
-    collectionName="survey_collection"
-
     ### Load and process data frame data frame
     loader = DataFrameLoader(df, page_content_column="content")
     documents = loader.load()
 
-    embeddings = OpenAIEmbeddings(model=model_name)
+    embeddings = OpenAIEmbeddings(model=MODEL_NAME)
     vectorstore = Chroma.from_documents(
-        collection_name=collectionName,
+        collection_name=COLLECTION_NAME,
         documents=documents,
         embedding=embeddings,
-        persist_directory=chromaDir,
+        persist_directory=CHROMA_DIR,
     )
 
     vectorstore.persist()
@@ -54,5 +53,5 @@ def ingest_docs():
 
 
 if __name__ == "__main__":
-    print(f'Running ingest with {model_name}...')
+    print(f'Running ingest with {MODEL_NAME}...')
     ingest_docs()
