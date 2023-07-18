@@ -34,9 +34,9 @@ async def startup_event():
         raise ValueError("No vectorstore found. Please run ingest.py first.")
     
     global model_name
-    model_name = os.getenv("OPENAI_MODEL_NAME");
+    model_name = os.getenv("OPENAI_CHAT_MODEL");
 
-    embeddings = OpenAIEmbeddings(model=model_name)
+    embeddings = OpenAIEmbeddings(model=os.getenv("OPENAI_MODEL_NAME"))
     chromaClient = chromadb.Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=chromaDir))
 
     global vectorstore

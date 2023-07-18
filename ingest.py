@@ -1,33 +1,32 @@
-"""Load html from files, clean up, split, ingest into Weaviate."""
+# pylint: disable=E1136
+# pylint: disable=E1137
+
+import os
+
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import DirectoryLoader
-from langchain.document_loaders import PyPDFLoader
 from langchain.vectorstores.chroma import Chroma
+from langchain.document_loaders import ReadTheDocsLoader
 
 from dotenv import load_dotenv
-import os;
-
-from langchain.document_loaders import ReadTheDocsLoader
 
 load_dotenv()
 
-chromaDir = './chroma/catalogue'
+CHROMA_DIR = './chroma/catalogue'
 
-collectionName = "catalogue_collection"
-model_name = os.getenv("OPENAI_MODEL_NAME")
+COLLECTION_NAME = "catalogue_collection"
+MODEL_NAME = os.getenv("OPENAI_MODEL_NAME")
 
 def ingest_docs():
-    ### Load and process data frame data frame
+    """Ingest content"""
     loader = ReadTheDocsLoader("rtdocs", features="html.parser")
     documents = loader.load()
 
-    embeddings = OpenAIEmbeddings(model=model_name)
+    embeddings = OpenAIEmbeddings(model=MODEL_NAME)
     vectorstore = Chroma.from_documents(
-        collection_name=collectionName,
+        collection_name=COLLECTION_NAME,
         documents=documents,
         embedding=embeddings,
-        persist_directory=chromaDir,
+        persist_directory=CHROMA_DIR,
     )
 
     vectorstore.persist()
@@ -35,5 +34,5 @@ def ingest_docs():
 
 
 if __name__ == "__main__":
-    print(f'Running ingest with {model_name}...')
+    print(f'Running ingest with {MODEL_NAME}...')
     ingest_docs()
