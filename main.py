@@ -1,23 +1,26 @@
 """Main entrypoint for the app."""
 import logging
+import os
+
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.templating import Jinja2Templates
+import chromadb
+from chromadb.config import Settings
+
+from langchain.vectorstores.chroma import Chroma
+from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import VectorStore
 
-from callback import QuestionGenCallbackHandler, StreamingLLMCallbackHandler
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.templating import Jinja2Templates
+
+from dotenv import load_dotenv
+
+from callback import QuestionGenCallbackHandler
 from query_data import get_chain
 from schemas import ChatResponse
 
-import chromadb
-from chromadb.config import Settings;
-from langchain.vectorstores.chroma import Chroma
-from langchain.embeddings import OpenAIEmbeddings
-
-from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
@@ -25,22 +28,22 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 vectorstore: Optional[VectorStore] = None
 
-chromaDir = './chroma/survey'
-collectionName="survey_collection"
+CHROMA_DIR = './chroma/clutch_doc'
+COLLECTION_NAME="clutch_doc"
 
 @app.on_event("startup")
 async def startup_event():
-    if not Path(chromaDir).exists():
+    if not Path(CHROMA_DIR).exists():
         raise ValueError("No vectorstore found. Please run ingest.py first.")
     
     global model_name
     model_name = os.getenv("OPENAI_CHAT_MODEL");
 
     embeddings = OpenAIEmbeddings(model=os.getenv("OPENAI_MODEL_NAME"))
-    chromaClient = chromadb.Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=chromaDir))
+    chromaClient = chromadb.Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=CHROMA_DIR))
 
     global vectorstore
-    vectorstore = Chroma(collection_name=collectionName, client=chromaClient, embedding_function=embeddings)
+    vectorstore = Chroma(collection_name=COLLECTION_NAME, client=chromaClient, embedding_function=embeddings)
 
 
 @app.get("/")
@@ -52,12 +55,8 @@ async def get(request: Request):
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     question_handler = QuestionGenCallbackHandler(websocket)
-    stream_handler = StreamingLLMCallbackHandler(websocket)
     chat_history = []
-    qa_chain = get_chain(model_name, vectorstore, question_handler, stream_handler, tracing=False)
-    # Use the below line instead of the above line to enable tracing
-    # Ensure `langchain-server` is running
-    # qa_chain = get_chain(vectorstore, question_handler, stream_handler, tracing=True)
+    qa_chain = get_chain(model_name, vectorstore, question_handler, tracing=False)
 
     while True:
         try:
@@ -69,11 +68,15 @@ async def websocket_endpoint(websocket: WebSocket):
             # Construct a response
             start_resp = ChatResponse(sender="bot", message="", type="start")
             await websocket.send_json(start_resp.dict())
-
+            
             result = await qa_chain.acall(
                 {"question": question, "chat_history": chat_history}
             )
-            chat_history.append((question, result["answer"]))
+            
+            resp = ChatResponse(sender="bot", message=result["answer"], type="stream")
+            await websocket.send_json(resp.dict())
+
+            #chat_history.append((question, "This is a token"))
 
             end_resp = ChatResponse(sender="bot", message="", type="end")
             await websocket.send_json(end_resp.dict())
