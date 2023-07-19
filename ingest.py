@@ -3,6 +3,8 @@ import os
 import glob
 import git
 
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores.chroma import Chroma
 from langchain.document_loaders import UnstructuredMarkdownLoader
 from langchain.document_loaders.merge import MergedDataLoader
 
@@ -35,6 +37,16 @@ def ingest_docs():
     
     merged_loaders = MergedDataLoader(loaders=loaders)
     docs = merged_loaders.load()
+    
+    embeddings = OpenAIEmbeddings(model=MODEL_NAME)
+    vectorstore = Chroma.from_documents(
+        collection_name=COLLECTION_NAME,
+        documents=docs,
+        embedding=embeddings,
+        persist_directory=CHROMA_DIR
+    )
+    
+    vectorstore.persist()
     
     print(f"Loaded {len(docs)} documents")
 
