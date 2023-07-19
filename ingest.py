@@ -1,16 +1,12 @@
-# pylint: disable=E1136
-# pylint: disable=E1137
-
 """Ingest content and create embeddings"""
 import os
-import pandas as pd
+import glob
+import git
 
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores.chroma import Chroma
-from langchain.document_loaders.dataframe import DataFrameLoader
+from langchain.document_loaders import UnstructuredMarkdownLoader
+from langchain.document_loaders.merge import MergedDataLoader
 
 from dotenv import load_dotenv
-from google_play_scraper import Sort, reviews
 
 load_dotenv()
 
@@ -19,37 +15,28 @@ CHROMA_DIR = './chroma/survey'
 COLLECTION_NAME = "survey_collection"
 MODEL_NAME = os.getenv("OPENAI_MODEL_NAME")
 
+
+REPO_NAME = "clutch"
+REPO_URL = "https://github.com/lyft/clutch.git"
+LOCAL_PATH = f"./data/ignored/{REPO_NAME}"
+
+
 def ingest_docs():
     """Ingest content"""
-    result, continuation_token = reviews(
-        'com.nianticlabs.pokemongo',
-        lang='en', # defaults to 'en'
-        country='us', # defaults to 'us'
-        sort=Sort.NEWEST, # defaults to Sort.NEWEST
-        count=500, # defaults to 100
-        #filter_score_with=5 # defaults to None(means all score)
-    )
+    path_doc = "docs/advanced/**/*.md"
 
-    df = pd.DataFrame.from_dict(result)
+    if not os.path.exists(LOCAL_PATH):
+        git.Repo.clone_from(REPO_URL, LOCAL_PATH)
+        print(f"Cloning {REPO_URL} to {LOCAL_PATH}")
 
-    df = df.fillna("")
-    df['at'] = df['at'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    df['source'] = df['reviewId']
-
-    ### Load and process data frame data frame
-    loader = DataFrameLoader(df, page_content_column="content")
-    documents = loader.load()
-
-    embeddings = OpenAIEmbeddings(model=MODEL_NAME)
-    vectorstore = Chroma.from_documents(
-        collection_name=COLLECTION_NAME,
-        documents=documents,
-        embedding=embeddings,
-        persist_directory=CHROMA_DIR,
-    )
-
-    vectorstore.persist()
-    print(f'Survey embeddings created for {len(documents)} documents')
+    loaders = []
+    for md_file_path in glob.glob(os.path.join(LOCAL_PATH, path_doc), recursive=True):
+        loaders.append(UnstructuredMarkdownLoader(md_file_path))
+    
+    merged_loaders = MergedDataLoader(loaders=loaders)
+    docs = merged_loaders.load()
+    
+    print(f"Loaded {len(docs)} documents")
 
 
 if __name__ == "__main__":
