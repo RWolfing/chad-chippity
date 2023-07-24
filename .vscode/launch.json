@@ -12,10 +12,11 @@
             "args": [
                 "main:app",
                 "--reload",
-                "--port 9000",
+                "--port",
+                "9000",
             ],
             "jinja": true,
-            "justMyCode": true
+            "justMyCode": false
         }
     ]
 }
