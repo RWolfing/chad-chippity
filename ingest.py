@@ -29,7 +29,7 @@ def count_tokens(text, encoding):
 
 def ingest_docs():
     """Ingest content"""
-    path_doc = "docs/advanced/**/*.md"
+    path_doc = "docs/**/**/*.md"
 
     if not os.path.exists(LOCAL_PATH):
         git.Repo.clone_from(REPO_URL, LOCAL_PATH)
@@ -37,6 +37,7 @@ def ingest_docs():
 
     loaders = []
     for md_file_path in glob.glob(os.path.join(LOCAL_PATH, path_doc), recursive=True):
+        print(f"Creating loader for path {md_file_path}")
         loaders.append(UnstructuredMarkdownLoader(md_file_path))
     
     merged_loaders = MergedDataLoader(loaders=loaders)
@@ -53,7 +54,7 @@ def ingest_docs():
     
     if token_total > 100000:
         print(f"Total token count is {token_total} which exceeds the limit of 1000000. Aborting...")
-        
+    
     embeddings = OpenAIEmbeddings(model=MODEL_NAME)
     vectorstore = Chroma.from_documents(
         collection_name=COLLECTION_NAME,
