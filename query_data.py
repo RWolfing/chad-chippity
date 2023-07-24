@@ -40,7 +40,7 @@ def get_chain(
     qa = ConversationalRetrievalChain.from_llm(
         llm=streaming_llm,
         retriever=vectorstore.as_retriever(),
-        chain_type="map_rerank",
+        chain_type="map_reduce",
         verbose=False,
         condense_question_llm=question_gen_llm,
         memory=memory,
